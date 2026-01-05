@@ -47,7 +47,7 @@ def get_best_model(api_key):
     except:
         return "gemini-1.5-flash"
 
-@app.post("/api/analyze")
+@app.post("/analyze")
 async def analyze_data(request: AnalysisRequest):
     empresa = request.company_name or request.companyName or "Empresa"
     
