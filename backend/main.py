@@ -87,28 +87,19 @@ async def analyze_data(request: AnalysisRequest):
     - **Análisis:** Valor [Valor Actual] vs Meta [Meta]. Avance del [%].
     - **Acción Correctiva:** Basada en la 'Línea de Acción' y datos de mercado.
 
-    Responde SOLO con este formato JSON:
+    Responde estrictamente con este formato JSON:
     {{
-        "strategic_analysis": "Informe completo en Markdown...",
+        "strategic_analysis": "### 📊 Informe Ejecutivo... (Incluye aquí el análisis detallado con semáforos 🔴🟡🟢 y el Plan de Implementación completo)",
         "radar_chart": [
-            {{"subject": "Financiera", "A": 80, "fullMark": 100}},
-            {{"subject": "Clientes", "A": 70, "fullMark": 100}},
-            {{"subject": "Procesos", "A": 90, "fullMark": 100}},
-            {{"subject": "Aprendizaje", "A": 65, "fullMark": 100}},
-            {{"subject": "ESG/ODS", "A": 85, "fullMark": 100}}
-        ]
+            {{"subject": "Financiera", "A": [CALCULA_PROMEDIO_REAL], "fullMark": 100}},
+            {{"subject": "Clientes", "A": [CALCULA_PROMEDIO_REAL], "fullMark": 100}},
+            {{"subject": "Procesos", "A": [CALCULA_PROMEDIO_REAL], "fullMark": 100}},
+            {{"subject": "Aprendizaje", "A": [CALCULA_PROMEDIO_REAL], "fullMark": 100}},
+            {{"subject": "ESG/ODS", "A": [CALCULA_PROMEDIO_REAL], "fullMark": 100}}
+        ],
+        "stats": {{
+            "total_objectives": [CONTEO_TOTAL],
+            "avg_progress": [PROMEDIO_TOTAL_GENERAL],
+            "near_target": [CONTEO_OBJETIVOS_EN_VERDE]
+        }}
     }}
-    """
-
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo_elegido}:generateContent?key={API_KEY}"
-    headers = {"Content-Type": "application/json"}
-    payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
-
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        result_json = response.json()
-        texto_ia = result_json['candidates'][0]['content']['parts'][0]['text']
-        clean_text = texto_ia.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean_text)
-    except Exception as e:
-        return {"strategic_analysis": f"Error técnico: {str(e)}", "radar_chart": []}
