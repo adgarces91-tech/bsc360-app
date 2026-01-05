@@ -65,7 +65,8 @@ const Dashboard = () => {
 
             setAnalysisData({
                 analysis: result.strategic_analysis,
-                radar: result.radar_chart
+                radar: result.radar_chart,
+                stats: result.stats
             });
             setStep(3);
 
@@ -151,5 +152,6 @@ const Dashboard = () => {
         </div>
     );
 };
+
 
 export default Dashboard;
