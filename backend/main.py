@@ -5,9 +5,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Any, Optional
-
+import os
 # --- CONFIGURACIÓN ---
-API_KEY = "AIzaSyBeDM0o2U3Qg5yX-bdInb-VvM5tdN9b8UA" 
+API_KEY = os.getenv("API_KEY") 
 
 app = FastAPI()
 
