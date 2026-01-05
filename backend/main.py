@@ -57,49 +57,27 @@ async def analyze_data(request: AnalysisRequest):
 
     # 2. PROMPT CON LÓGICA DE SEMÁFORO (Matriz Operativa)
     # Rojo: < 70% | Amarillo: 70-90% | Verde: > 90%
-    prompt_text = f"""
-    Actúa como Auditor Estratégico Senior. Genera un Balanced Scorecard 360° para '{empresa}'.
+    prompt_text = """
+    Actúa como Auditor Estratégico Senior. Genera un Balanced Scorecard 360°.
     
-    CONTEXTO EMPRESARIAL Y MERCADO:
-    {json.dumps(request.market_data, indent=2)}
-    
-    OBJETIVOS ESTRATÉGICOS (MATRIZ):
-    {json.dumps(request.objectives, indent=2)}
-
-    TAREAS DE ANÁLISIS:
-    1. Calcula el % de Avance para cada objetivo: (Valor Actual / Meta).
-    2. Determina el ESTADO usando esta escala:
-       - 🔴 CRÍTICO: Avance inferior al 70%.
-       - 🟡 EN OBSERVACIÓN: Avance entre 70% y 90%.
-       - 🟢 BAJO RIESGO: Avance superior al 90%.
-    3. Cruza los datos con la Inflación y Tasa de Interés del mercado.
-
     ESTRUCTURA DEL INFORME (Markdown):
     ### 📊 Dashboard Estratégico 2026
-    * Diagnóstico basado en el contexto de la empresa.
-    * Indicador de Salud Global (%).
-
-    ### 🎯 Recomendaciones por Objetivo (Semáforo Inteligente)
-    (Para cada objetivo analizado):
-    #### [Nombre del Objetivo] [EMOJI SEGÚN ESTADO]
-    - **Estado:** [CRÍTICO / EN OBSERVACIÓN / BAJO RIESGO]
-    - **KPI:** [Nombre del KPI]
-    - **Análisis:** Valor [Valor Actual] vs Meta [Meta]. Avance del [%].
-    - **Acción Correctiva:** Basada en la 'Línea de Acción' y datos de mercado.
+    ### 🎯 Recomendaciones por Objetivo (Semáforo Inteligente 🔴🟡🟢)
 
     Responde estrictamente con este formato JSON:
-    {{
-        "strategic_analysis": "### 📊 Informe Ejecutivo... (Incluye aquí el análisis detallado con semáforos 🔴🟡🟢 y el Plan de Implementación completo)",
+    {
+        "strategic_analysis": "Informe completo aquí...",
         "radar_chart": [
-            {{"subject": "Financiera", "A": [CALCULA_PROMEDIO_REAL], "fullMark": 100}},
-            {{"subject": "Clientes", "A": [CALCULA_PROMEDIO_REAL], "fullMark": 100}},
-            {{"subject": "Procesos", "A": [CALCULA_PROMEDIO_REAL], "fullMark": 100}},
-            {{"subject": "Aprendizaje", "A": [CALCULA_PROMEDIO_REAL], "fullMark": 100}},
-            {{"subject": "ESG/ODS", "A": [CALCULA_PROMEDIO_REAL], "fullMark": 100}}
+            {"subject": "Financiera", "A": 85, "fullMark": 100},
+            {"subject": "Clientes", "A": 75, "fullMark": 100},
+            {"subject": "Procesos", "A": 90, "fullMark": 100},
+            {"subject": "Aprendizaje", "A": 65, "fullMark": 100},
+            {"subject": "ESG/ODS", "A": 80, "fullMark": 100}
         ],
-        "stats": {{
-            "total_objectives": [CONTEO_TOTAL],
-            "avg_progress": [PROMEDIO_TOTAL_GENERAL],
-            "near_target": [CONTEO_OBJETIVOS_EN_VERDE]
-        }}
-    }}
+        "stats": {
+            "total_objectives": 10,
+            "avg_progress": 92.1,
+            "near_target": 2
+        }
+    }
+    """
