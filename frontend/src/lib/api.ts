@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 
-const API_URL = 'https://bsc360-backend-michelle.onrender.com'; // Adjust if backend runs on a different port
+const API_URL = 'https://bsc360-app.onrender.com';
 
 export const analyzeData = async (data: any) => {
     try {
@@ -26,3 +26,4 @@ export const analyzeData = async (data: any) => {
         throw error;
     }
 };
+
