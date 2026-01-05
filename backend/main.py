@@ -81,3 +81,35 @@ async def analyze_data(request: AnalysisRequest):
         }
     }
     """
+# 3. ENVÍO A GOOGLE GEMINI
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo_elegido}:generateContent?key={API_KEY}"
+    headers = {"Content-Type": "application/json"}
+    
+    # Preparamos el mensaje combinando tus instrucciones y los datos reales
+    payload = {
+        "contents": [{
+            "parts": [{
+                "text": f"{prompt_text}\n\nDATOS REALES A ANALIZAR:\nEmpresa: {empresa}\nObjetivos: {json.dumps(request.objectives)}\nMercado: {json.dumps(request.market_data)}"
+            }]
+        }]
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        result_json = response.json()
+        
+        # Extraemos el texto que generó la IA
+        texto_ia = result_json['candidates'][0]['content']['parts'][0]['text']
+        
+        # Limpiamos el texto para que sea un JSON válido
+        clean_text = texto_ia.replace("```json", "").replace("```", "").strip()
+        
+        return json.loads(clean_text)
+        
+    except Exception as e:
+        print(f"❌ Error técnico: {str(e)}")
+        return {
+            "strategic_analysis": f"Error al conectar con la IA: {str(e)}",
+            "radar_chart": [],
+            "stats": {"total_objectives": 0, "avg_progress": 0, "near_target": 0}
+        }
