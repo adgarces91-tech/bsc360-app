@@ -102,7 +102,7 @@ async def analyze_data(request: AnalysisRequest):
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo_elegido}:generateContent?key={API_KEY}"
     headers = {"Content-Type": "application/json"}
-    payload = {{"contents": [{"parts": [{"text": prompt_text}]}]}}
+    payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
 
     try:
         response = requests.post(url, headers=headers, json=payload)
