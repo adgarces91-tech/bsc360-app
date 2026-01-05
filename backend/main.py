@@ -49,106 +49,66 @@ def get_best_model(api_key):
 
 @app.post("/analyze")
 async def analyze_data(request: AnalysisRequest):
+    # Extraer datos para el reporte
     empresa = request.company_name or request.companyName or "Empresa"
     
-    # 1. DEBUG DE DATOS (¡Esto es vital!)
-    print(f"📥 DATOS RECIBIDOS DEL FRONTEND:")
-    print(f" - Empresa: {empresa}")
-    print(f" - Cantidad de Objetivos: {len(request.objectives)}")
-    # Imprimimos el primer objetivo para ver si tiene datos reales
-    if request.objectives:
-        print(f" - Ejemplo Objetivo 1: {request.objectives[0]}")
-    else:
-        print(f" ⚠️ ALERTA: La lista de objetivos está VACÍA. La IA inventará datos.")
-
-    # 2. SELECCIÓN DE MODELO
+    # 1. SELECCIÓN DE MODELO
     modelo_elegido = get_best_model(API_KEY)
-    print(f"🧠 Analizando con: {modelo_elegido}...")
 
-    # 3. PROMPT "ANALISTA FINANCIERO" (Estructura Rígida con Cálculos)
-    objetivos_text = json.dumps(request.objectives, indent=2)
-    
+    # 2. PROMPT CON LÓGICA DE SEMÁFORO (Matriz Operativa)
+    # Rojo: < 70% | Amarillo: 70-90% | Verde: > 90%
     prompt_text = f"""
-    Actúa como un Auditor de Estrategia Corporativa.
-    Analiza los siguientes datos reales de la empresa '{empresa}'.
+    Actúa como Auditor Estratégico Senior. Genera un Balanced Scorecard 360° para '{empresa}'.
     
-    DATOS DE ENTRADA (OBJETIVOS Y KPIs):
-    {objetivos_text}
-
-    TU TAREA:
-    Generar un informe técnico detallado. Para cada objetivo crítico, DEBES CALCULAR las brechas.
-    No inventes que "faltan datos" si los datos están ahí. Úsalos.
-
-    ESTRUCTURA EXACTA DEL INFORME (Markdown):
+    CONTEXTO EMPRESARIAL Y MERCADO:
+    {json.dumps(request.market_data, indent=2)}
     
-    ### 📊 Estado de Situación 2026
-    * **Diagnóstico Global:** [Resumen técnico de 3 líneas]
-    * **Indicador de Salud:** [Calcula un % promedio de cumplimiento general]
+    OBJETIVOS ESTRATÉGICOS (MATRIZ):
+    {json.dumps(request.objectives, indent=2)}
 
-    ---
-    ### 🎯 Análisis de Desviaciones (Top 3 Críticos)
-    
-    #### 1. [Nombre del Objetivo]
-    * **Situación Actual:** (Ej: Valor Real 18% vs Meta 25%)
-    * **📉 Análisis de Brecha:**
-      - **Brecha Absoluta:** [Diferencia numérica]
-      - **Cumplimiento:** [Calcula el % logrado]
-    * **🔥 Acción Correctiva:** [Solución técnica inmediata]
-    * **💰 Presupuesto Estimado:** $XX,XXX USD.
+    TAREAS DE ANÁLISIS:
+    1. Calcula el % de Avance para cada objetivo: (Valor Actual / Meta).
+    2. Determina el ESTADO usando esta escala:
+       - 🔴 CRÍTICO: Avance inferior al 70%.
+       - 🟡 EN OBSERVACIÓN: Avance entre 70% y 90%.
+       - 🟢 BAJO RIESGO: Avance superior al 90%.
+    3. Cruza los datos con la Inflación y Tasa de Interés del mercado.
 
-    #### 2. [Nombre del Objetivo]
-    ... (Repetir estructura con cálculos) ...
+    ESTRUCTURA DEL INFORME (Markdown):
+    ### 📊 Dashboard Estratégico 2026
+    * Diagnóstico basado en el contexto de la empresa.
+    * Indicador de Salud Global (%).
 
-    #### 3. [Nombre del Objetivo]
-    ... (Repetir estructura con cálculos) ...
+    ### 🎯 Recomendaciones por Objetivo (Semáforo Inteligente)
+    (Para cada objetivo analizado):
+    #### [Nombre del Objetivo] [EMOJI SEGÚN ESTADO]
+    - **Estado:** [CRÍTICO / EN OBSERVACIÓN / BAJO RIESGO]
+    - **KPI:** [Nombre del KPI]
+    - **Análisis:** Valor [Valor Actual] vs Meta [Meta]. Avance del [%].
+    - **Acción Correctiva:** Basada en la 'Línea de Acción' y datos de mercado.
 
-    ---
-    ### 🚀 Plan de Implementación
-    * **Corto Plazo (Semana 1-4):** Acciones de choque.
-    * **Mediano Plazo (Mes 2-3):** Estabilización.
-
-    ---------------------------------------------------
-    Responde SOLO con este JSON:
+    Responde SOLO con este formato JSON:
     {{
-        "strategic_analysis": "Tu markdown aquí...",
+        "strategic_analysis": "Informe completo en Markdown...",
         "radar_chart": [
-            {{"subject": "Financiera", "A": 100, "fullMark": 150}},
-            {{"subject": "Clientes", "A": 100, "fullMark": 150}},
-            {{"subject": "Procesos", "A": 100, "fullMark": 150}},
-            {{"subject": "Aprendizaje", "A": 100, "fullMark": 150}},
-            {{"subject": "Sostenibilidad", "A": 100, "fullMark": 150}}
+            {{"subject": "Financiera", "A": 80, "fullMark": 100}},
+            {{"subject": "Clientes", "A": 70, "fullMark": 100}},
+            {{"subject": "Procesos", "A": 90, "fullMark": 100}},
+            {{"subject": "Aprendizaje", "A": 65, "fullMark": 100}},
+            {{"subject": "ESG/ODS", "A": 85, "fullMark": 100}}
         ]
     }}
     """
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo_elegido}:generateContent?key={API_KEY}"
     headers = {"Content-Type": "application/json"}
-    
-    payload = {
-        "contents": [{"parts": [{"text": prompt_text}]}],
-        "safetySettings": [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
-        ]
-    }
+    payload = {{"contents": [{"parts": [{"text": prompt_text}]}]}}
 
     try:
         response = requests.post(url, headers=headers, json=payload)
-        
-        if response.status_code != 200:
-            print(f"❌ Error API: {response.text}")
-            return {"strategic_analysis": f"Error Google: {response.text}", "radar_chart": []}
-
         result_json = response.json()
-        
-        if "candidates" not in result_json:
-            return {"strategic_analysis": "La IA no pudo procesar los datos numéricos.", "radar_chart": []}
-
         texto_ia = result_json['candidates'][0]['content']['parts'][0]['text']
         clean_text = texto_ia.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_text)
-
     except Exception as e:
-        print(f"Error grave: {e}")
         return {"strategic_analysis": f"Error técnico: {str(e)}", "radar_chart": []}
