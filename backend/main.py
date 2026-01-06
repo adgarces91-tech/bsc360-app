@@ -41,78 +41,118 @@ def get_best_model(api_key):
 
 @app.post("/analyze")
 async def analyze_data(request: AnalysisRequest):
-    # PREPARACIÓN DE DATOS (Variables Limpias)
+    # 1. PREPARACIÓN DE DATOS
     empresa = request.company_data.get('name', 'Empresa') if isinstance(request.company_data, dict) else "Empresa"
     strategy = json.dumps(request.strategy_data, ensure_ascii=False)
     market = json.dumps(request.market_data, ensure_ascii=False)
-    objectives = json.dumps(request.objectives, ensure_ascii=False)
     
-    # Extraemos inflación y tasa para análisis financiero
     inflation = request.market_data.get('inflation', 0) if isinstance(request.market_data, dict) else 0
     interest = request.market_data.get('interest_rate', 0) if isinstance(request.market_data, dict) else 0
 
+    # --- 2. MOTOR MATEMÁTICO (Python calcula, no la IA) ---
+    # Esto soluciona el error del "0%" en Clientes y ROI incorrectos
+    processed_objectives = []
+    total_progress = 0
+    count = 0
+
+    for obj in request.objectives:
+        try:
+            # Forzamos conversión a números para evitar errores
+            current = float(obj.get('current_value', 0))
+            target = float(obj.get('target_value', 1)) # Evitar división por cero
+            
+            # Cálculo de Avance
+            if target == 0: 
+                progress = 0
+            else:
+                progress = (current / target) * 100
+            
+            # Tope lógico (opcional, para que no de 500% si se pasa mucho)
+            # progress = min(progress, 150) 
+
+            # Agregamos el cálculo al objeto que enviaremos a la IA
+            obj['calculated_progress'] = round(progress, 2)
+            
+            # Determinamos el semáforo nosotros mismos para asegurar precisión
+            if progress < 70:
+                obj['status_emoji'] = "🔴 CRÍTICO"
+                obj['status_text'] = "Requiere Atención Inmediata"
+            elif progress < 90:
+                obj['status_emoji'] = "🟡 ALERTA"
+                obj['status_text'] = "Desviación Moderada"
+            else:
+                obj['status_emoji'] = "🟢 ÓPTIMO"
+                obj['status_text'] = "En Meta"
+
+            processed_objectives.append(obj)
+            total_progress += progress
+            count += 1
+        except Exception as e:
+            obj['calculated_progress'] = 0
+            obj['status_emoji'] = "⚪ ERROR DATOS"
+            processed_objectives.append(obj)
+
+    # Calculamos el promedio global real
+    global_avg = round(total_progress / count, 2) if count > 0 else 0
+    objectives_json = json.dumps(processed_objectives, ensure_ascii=False)
+
     modelo_elegido = get_best_model(API_KEY)
 
-    # --- PROMPT "EDICIÓN DE LUJO" ---
+    # 3. PROMPT MAESTRO (Ahora recibe los cálculos listos)
     prompt_text = f"""
     Actúa como Auditor Estratégico Senior (Big Four).
-    Genera un INFORME FINAL DE AUDITORÍA BSC 360° con formato visual rico, usando emojis y alertas.
+    Genera un INFORME FINAL BSC 360° utilizando los CÁLCULOS MATEMÁTICOS YA REALIZADOS.
 
-    --- CONTEXTO ---
+    --- DATOS PRE-CALCULADOS (USAR ESTOS VALORES, NO RE-CALCULAR) ---
+    PROMEDIO GLOBAL: {global_avg}%
+    OBJETIVOS DETALLADOS: {objectives_json}
+    
+    CONTEXTO EXTRA:
     EMPRESA: {empresa}
     ESTRATEGIA: {strategy}
     MERCADO: {market}
-    OBJETIVOS: {objectives}
 
-    --- INSTRUCCIONES DE FORMATO VISUAL (OBLIGATORIO) ---
-    1. Usa EMOJIS en todos los títulos y secciones clave.
-    2. SISTEMA DE SEMÁFORO:
-       - Si el avance es < 70%: 🔴 CRÍTICO
-       - Si el avance es 70-90%: 🟡 ALERTA
-       - Si el avance es > 90%: 🟢 ÓPTIMO
-    3. Separa claramente cada objetivo con una línea divisoria (---).
-    4. El estilo debe ser "Ejecutivo Directo": frases cortas, datos duros, sin relleno.
+    --- INSTRUCCIONES DE FORMATO ---
+    1. Usa los valores 'calculated_progress' y 'status_emoji' que vienen en el JSON. ¡No inventes números!
+    2. Estructura visual: Usa bloques de cita (>) para destacar el estado.
+    3. Separa objetivos con línea horizontal (---).
 
-    --- PLANTILLA DE CONTENIDO (Usar Markdown) ---
-    Genera el campo 'strategic_analysis' siguiendo EXACTAMENTE este esquema:
+    --- PLANTILLA DE CONTENIDO (Markdown) ---
+    Genera el campo 'strategic_analysis' así:
 
-    # 📊 INFORME EJECUTIVO - BSC 360°
+    # 📊 INFORME DE GESTIÓN - BSC 360°
     
-    ## 🏦 Resumen de Salud Estratégica
+    ## 🏦 Resumen Ejecutivo
     * **Empresa:** {empresa}
-    * **Contexto Financiero:** Inflación {inflation}% | Tasas {interest}%
-    * **Total Objetivos:** [N]
-    * **Promedio Global:** [X]%
-    * **🚨 Alerta Principal:** [Objetivo con peor desempeño]
+    * **Entorno:** Inflación {inflation}% | Tasa {interest}%
+    * **Salud General:** {global_avg}% de cumplimiento global.
+    * **Diagnóstico:** (Escribe un breve párrafo de 3 líneas resumiendo la situación).
 
     ---
-    # 🎯 ANÁLISIS DETALLADO POR OBJETIVO
-    (Repite esto para cada objetivo):
+    # 🎯 DETALLE DE DESEMPEÑO
+    (Repite para cada objetivo):
 
     ### 📌 [Nombre del Objetivo]
     **Perspectiva:** [Perspectiva] | **KPI:** [Nombre KPI]
 
-    > **ESTADO ACTUAL:** [SEMÁFORO 🔴🟡🟢] [Estado Texto]
-    
+    > **ESTADO:** [status_emoji] ([status_text])
+    > **CUMPLIMIENTO:** [calculated_progress]%
+
     **📉 LAS CIFRAS:**
-    * **Meta:** [Valor Meta]
-    * **Real:** [Valor Actual]
-    * **Brecha:** [Valor] ([Porcentaje]%)
-    * **Cumplimiento:** [Porcentaje]%
+    * **Meta:** [target_value] [unit]
+    * **Real:** [current_value] [unit]
+    * **Brecha:** (Calcula la diferencia simple)
 
     **🧠 ANÁLISIS & ACCIÓN:**
-    * **🔍 Diagnóstico:** (¿Por qué ocurre la brecha? Relacionar con mercado).
-    * **⚡ Plan de Choque:** [Acción Inmediata 1]
-    * **💰 Presupuesto:** $[Monto] USD (Detallar items).
-    * **⚠️ Riesgo:** [Riesgo de inacción].
-    * **🔗 Interdependencias:** [Impacto en otros objetivos].
+    * **🔍 Causa Raíz:** (Explica por qué, cruzando con datos de mercado/estrategia).
+    * **⚡ Plan de Choque:** [Línea de Acción mejorada].
+    * **💰 Inversión Requerida:** $[Estimación USD] (Sé específico).
+    * **⚠️ Riesgo:** [Consecuencia de no actuar].
 
     ---
-    (Fin del loop de objetivos)
-
-    # 🚀 PLAN DE IMPLEMENTACIÓN
-    * **Inmediato (0-30 días):** [Lista]
-    * **Mediano Plazo (30-90 días):** [Lista]
+    # 🚀 PLAN DE IMPLEMENTACIÓN PRIORIZADO
+    * **Corto Plazo (Semana 1-4):** [Lista acciones urgentes de objetivos rojos]
+    * **Mediano Plazo (Mes 2-3):** [Lista acciones de objetivos amarillos]
 
     --- FIN PLANTILLA ---
 
@@ -120,33 +160,30 @@ async def analyze_data(request: AnalysisRequest):
     {{
         "strategic_analysis": "El markdown generado...",
         "radar_chart": [
-            {{"subject": "Financiera", "A": [CALCULO_REAL], "fullMark": 100}},
-            {{"subject": "Clientes", "A": [CALCULO_REAL], "fullMark": 100}},
-            {{"subject": "Procesos", "A": [CALCULO_REAL], "fullMark": 100}},
-            {{"subject": "Aprendizaje", "A": [CALCULO_REAL], "fullMark": 100}},
-            {{"subject": "ESG/ODS", "A": [CALCULO_REAL], "fullMark": 100}}
+            {{"subject": "Financiera", "A": [PROMEDIO_REAL_DE_ESTA_PERSPECTIVA], "fullMark": 100}},
+            {{"subject": "Clientes", "A": [PROMEDIO_REAL_DE_ESTA_PERSPECTIVA], "fullMark": 100}},
+            {{"subject": "Procesos", "A": [PROMEDIO_REAL_DE_ESTA_PERSPECTIVA], "fullMark": 100}},
+            {{"subject": "Aprendizaje", "A": [PROMEDIO_REAL_DE_ESTA_PERSPECTIVA], "fullMark": 100}},
+            {{"subject": "ESG/ODS", "A": [PROMEDIO_REAL_DE_ESTA_PERSPECTIVA], "fullMark": 100}}
         ],
         "stats": {{
-            "total_objectives": [CONTEO],
-            "avg_progress": [PROMEDIO_GLOBAL],
-            "near_target": [CONTEO_VERDES]
+            "total_objectives": {count},
+            "avg_progress": {global_avg},
+            "near_target": [CALCULAR_OBJETIVOS_VERDES]
         }}
     }}
     """
 
-    # 3. ENVÍO A GOOGLE
+    # 4. ENVÍO A GOOGLE
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo_elegido}:generateContent?key={API_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = { "contents": [{"parts": [{"text": prompt_text}]}] }
 
     try:
-        print("📡 Enviando a Gemini...")
         response = requests.post(url, headers=headers, json=payload)
         result_json = response.json()
         
-        if 'candidates' not in result_json: 
-            print("Error API:", result_json)
-            raise ValueError("Respuesta inválida de Google")
+        if 'candidates' not in result_json: raise ValueError("Error API Google")
         
         texto_ia = result_json['candidates'][0]['content']['parts'][0]['text']
         clean_text = texto_ia.replace("```json", "").replace("```", "").strip()
