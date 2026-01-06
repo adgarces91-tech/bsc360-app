@@ -11,7 +11,6 @@ interface ObjectivesFormProps {
 
 const ObjectivesForm = ({ objectives, onUpdate, onBack, onSubmit, isLoading }: ObjectivesFormProps) => {
     
-    // Función para actualizar un campo específico de un objetivo
     const handleObjChange = (index: number, field: string, value: any) => {
         const updatedObjectives = [...objectives];
         updatedObjectives[index] = { ...updatedObjectives[index], [field]: value };
@@ -47,7 +46,7 @@ const ObjectivesForm = ({ objectives, onUpdate, onBack, onSubmit, isLoading }: O
                             </div>
                         </div>
 
-                        {/* GRID DE DATOS TÉCNICOS (CASILLAS PDF) */}
+                        {/* GRID DE DATOS TÉCNICOS */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                             
                             {/* Columna 1: Definición */}
@@ -98,9 +97,19 @@ const ObjectivesForm = ({ objectives, onUpdate, onBack, onSubmit, isLoading }: O
                                     <label className="block text-xs font-bold text-gray-400 uppercase">Responsable</label>
                                     <input className="w-full border rounded p-1" value={obj.responsible || ''} onChange={(e) => handleObjChange(idx, 'responsible', e.target.value)} />
                                 </div>
+                                {/* CAMBIO AQUÍ: INPUT NUMÉRICO PARA PRESUPUESTO EN USD */}
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase">Financiamiento</label>
-                                    <input className="w-full border rounded p-1" value={obj.financing || ''} onChange={(e) => handleObjChange(idx, 'financing', e.target.value)} />
+                                    <label className="block text-xs font-bold text-gray-400 uppercase">Presupuesto (USD)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-2 top-1 text-gray-500">$</span>
+                                        <input 
+                                            type="number" 
+                                            className="w-full border rounded p-1 pl-5 font-mono text-green-700" 
+                                            placeholder="50000"
+                                            value={obj.financing || ''} 
+                                            onChange={(e) => handleObjChange(idx, 'financing', parseFloat(e.target.value))} 
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
