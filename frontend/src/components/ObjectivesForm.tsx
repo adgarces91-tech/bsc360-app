@@ -11,19 +11,48 @@ interface ObjectivesFormProps {
 
 const ObjectivesForm = ({ objectives, onUpdate, onBack, onSubmit, isLoading }: ObjectivesFormProps) => {
     
+    // Función para actualizar un campo específico
     const handleObjChange = (index: number, field: string, value: any) => {
         const updatedObjectives = [...objectives];
         updatedObjectives[index] = { ...updatedObjectives[index], [field]: value };
         onUpdate(updatedObjectives);
     };
 
+    // --- NUEVA FUNCIÓN: ELIMINAR OBJETIVO ---
+    const handleDelete = (index: number) => {
+        if (window.confirm("¿Estás seguro de eliminar este objetivo?")) {
+            const updated = objectives.filter((_, i) => i !== index);
+            onUpdate(updated);
+        }
+    };
+
+    // --- NUEVA FUNCIÓN: AGREGAR OBJETIVO ---
+    const handleAdd = () => {
+        const newObj = {
+            perspective: "Financiera", // Valor por defecto
+            objective: "Nuevo Objetivo Estratégico",
+            kpi: "Nuevo KPI",
+            current_value: 0,
+            target_value: 100,
+            unit: "%",
+            action_line: "Definir acción...",
+            frequency: "Mensual",
+            baseline: 0,
+            financing: 0,
+            responsible: "Gerencia",
+            data_source: "Manual"
+        };
+        onUpdate([...objectives, newObj]);
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
             
+            {/* Header Flotante */}
             <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-100 shadow-sm sticky top-20 z-10">
                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                     <span className="bg-indigo-600 text-white w-8 h-8 flex items-center justify-center rounded-full text-sm">2</span>
-                    Definición de Objetivos (Detalle Técnico)
+                    Definición de Objetivos
                 </h2>
                 <span className="bg-indigo-50 text-indigo-700 text-sm font-bold px-3 py-1 rounded-full border border-indigo-100">
                     {objectives.length} KPIs Activos
@@ -32,30 +61,55 @@ const ObjectivesForm = ({ objectives, onUpdate, onBack, onSubmit, isLoading }: O
 
             <div className="grid gap-6 pb-20">
                 {objectives.map((obj, idx) => (
-                    <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-indigo-300 transition-all">
+                    <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-indigo-300 transition-all group">
                         
-                        {/* Cabecera del Objetivo */}
+                        {/* Cabecera del Objetivo con Botón ELIMINAR */}
                         <div className="flex justify-between items-start mb-6 border-b border-gray-100 pb-4">
-                            <div>
-                                <span className={`text-xs font-bold px-2 py-1 rounded uppercase tracking-wider ${
-                                    obj.perspective === 'Financiera' ? 'bg-green-100 text-green-700' :
-                                    obj.perspective === 'Clientes' ? 'bg-blue-100 text-blue-700' :
-                                    obj.perspective === 'Procesos' ? 'bg-yellow-100 text-yellow-700' :
-                                    'bg-purple-100 text-purple-700'
-                                }`}>
-                                    {obj.perspective}
-                                </span>
-                                <h3 className="text-lg font-bold mt-2 text-gray-800">{obj.objective}</h3>
-                            </div>
-                            {/* Input de Unidad Editable */}
-                            <div className="w-24">
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase text-right mb-1">Unidad</label>
+                            <div className="flex-grow">
+                                {/* Selector de Perspectiva Rápido */}
+                                <select 
+                                    className={`text-xs font-bold px-2 py-1 rounded uppercase tracking-wider cursor-pointer border-none focus:ring-0 ${
+                                        obj.perspective === 'Financiera' ? 'bg-green-100 text-green-700' :
+                                        obj.perspective === 'Clientes' ? 'bg-blue-100 text-blue-700' :
+                                        obj.perspective === 'Procesos' ? 'bg-yellow-100 text-yellow-700' :
+                                        'bg-purple-100 text-purple-700'
+                                    }`}
+                                    value={obj.perspective}
+                                    onChange={(e) => handleObjChange(idx, 'perspective', e.target.value)}
+                                >
+                                    <option value="Financiera">Financiera</option>
+                                    <option value="Clientes">Clientes</option>
+                                    <option value="Procesos">Procesos</option>
+                                    <option value="Aprendizaje">Aprendizaje</option>
+                                    <option value="ESG/ODS">ESG/ODS</option>
+                                </select>
+
                                 <input 
-                                    className="w-full text-right text-xs font-bold text-gray-500 bg-gray-50 border-none rounded focus:ring-0" 
-                                    value={obj.unit || ''} 
-                                    onChange={(e) => handleObjChange(idx, 'unit', e.target.value)}
-                                    placeholder="%"
+                                    className="text-lg font-bold mt-2 text-gray-800 w-full border-none focus:ring-0 px-0" 
+                                    value={obj.objective} 
+                                    onChange={(e) => handleObjChange(idx, 'objective', e.target.value)}
                                 />
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                {/* Input de Unidad */}
+                                <div className="w-16 text-right">
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Unidad</label>
+                                    <input 
+                                        className="w-full text-right text-xs font-bold text-gray-500 bg-gray-50 border-none rounded focus:ring-0" 
+                                        value={obj.unit || ''} 
+                                        onChange={(e) => handleObjChange(idx, 'unit', e.target.value)}
+                                        placeholder="%"
+                                    />
+                                </div>
+                                {/* BOTÓN ELIMINAR */}
+                                <button 
+                                    onClick={() => handleDelete(idx)}
+                                    className="text-gray-300 hover:text-red-500 transition-colors p-2"
+                                    title="Eliminar Objetivo"
+                                >
+                                    🗑️
+                                </button>
                             </div>
                         </div>
 
@@ -79,54 +133,32 @@ const ObjectivesForm = ({ objectives, onUpdate, onBack, onSubmit, isLoading }: O
                                 </div>
                             </div>
 
-                            {/* Columna 2: Metas (CON UNIDADES VISUALES) */}
+                            {/* Columna 2: Metas */}
                             <div className="space-y-3 border-r border-gray-100 pr-4 bg-gray-50/50 p-3 rounded-lg">
                                 <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-2">Métricas ({obj.unit})</h4>
-                                
                                 <div className="grid grid-cols-2 gap-3">
-                                    {/* LÍNEA BASE + UNIDAD */}
                                     <div className="relative">
                                         <label className="block text-xs font-semibold text-gray-600 mb-1">Línea Base</label>
                                         <div className="relative">
-                                            <input 
-                                                type="number" 
-                                                className="w-full border border-gray-300 rounded-md p-2 pr-8 text-sm" 
-                                                value={obj.baseline || 0} 
-                                                onChange={(e) => handleObjChange(idx, 'baseline', parseFloat(e.target.value))} 
-                                            />
+                                            <input type="number" className="w-full border border-gray-300 rounded-md p-2 pr-8 text-sm" value={obj.baseline || 0} onChange={(e) => handleObjChange(idx, 'baseline', parseFloat(e.target.value))} />
                                             <span className="absolute right-2 top-2 text-xs text-gray-400 font-bold pointer-events-none">{obj.unit}</span>
                                         </div>
                                     </div>
-
-                                    {/* META + UNIDAD */}
                                     <div className="relative">
-                                        <label className="block text-xs font-bold text-indigo-600 mb-1">Meta Objetivo</label>
+                                        <label className="block text-xs font-bold text-indigo-600 mb-1">Meta</label>
                                         <div className="relative">
-                                            <input 
-                                                type="number" 
-                                                className="w-full border-2 border-indigo-100 rounded-md p-2 pr-8 text-sm font-bold text-indigo-700 focus:border-indigo-500 outline-none" 
-                                                value={obj.target_value} 
-                                                onChange={(e) => handleObjChange(idx, 'target_value', parseFloat(e.target.value))} 
-                                            />
+                                            <input type="number" className="w-full border-2 border-indigo-100 rounded-md p-2 pr-8 text-sm font-bold text-indigo-700 focus:border-indigo-500 outline-none" value={obj.target_value} onChange={(e) => handleObjChange(idx, 'target_value', parseFloat(e.target.value))} />
                                             <span className="absolute right-2 top-2 text-xs text-indigo-300 font-bold pointer-events-none">{obj.unit}</span>
                                         </div>
                                     </div>
                                 </div>
-
-                                {/* VALOR ACTUAL + UNIDAD */}
                                 <div className="relative mt-2">
-                                    <label className="block text-xs font-semibold text-gray-600 mb-1">Valor Actual (Real)</label>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">Valor Actual</label>
                                     <div className="relative">
-                                        <input 
-                                            type="number" 
-                                            className="w-full border border-gray-300 rounded-md p-2 pr-8 text-sm font-bold text-gray-800" 
-                                            value={obj.current_value} 
-                                            onChange={(e) => handleObjChange(idx, 'current_value', parseFloat(e.target.value))} 
-                                        />
+                                        <input type="number" className="w-full border border-gray-300 rounded-md p-2 pr-8 text-sm font-bold text-gray-800" value={obj.current_value} onChange={(e) => handleObjChange(idx, 'current_value', parseFloat(e.target.value))} />
                                         <span className="absolute right-2 top-2 text-xs text-gray-400 font-bold pointer-events-none">{obj.unit}</span>
                                     </div>
                                 </div>
-
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-600 mb-1">Fuente Datos</label>
                                     <input className="w-full border border-gray-300 rounded-md p-2 text-xs text-gray-500" value={obj.data_source || ''} onChange={(e) => handleObjChange(idx, 'data_source', e.target.value)} />
@@ -144,26 +176,25 @@ const ObjectivesForm = ({ objectives, onUpdate, onBack, onSubmit, isLoading }: O
                                     <label className="block text-xs font-semibold text-gray-600 mb-1">Responsable</label>
                                     <input className="w-full border border-gray-300 rounded-md p-2 text-sm" value={obj.responsible || ''} onChange={(e) => handleObjChange(idx, 'responsible', e.target.value)} />
                                 </div>
-                                
-                                {/* Presupuesto USD */}
                                 <div>
                                     <label className="block text-xs font-bold text-green-700 mb-1">Presupuesto (USD)</label>
                                     <div className="relative">
                                         <span className="absolute left-3 top-2 text-green-600 font-bold">$</span>
-                                        <input 
-                                            type="number" 
-                                            className="w-full border border-green-200 bg-green-50 rounded-md p-2 pl-6 font-mono text-green-800 font-bold focus:ring-2 focus:ring-green-500 outline-none" 
-                                            placeholder="0"
-                                            value={obj.financing || ''} 
-                                            onChange={(e) => handleObjChange(idx, 'financing', parseFloat(e.target.value))} 
-                                        />
+                                        <input type="number" className="w-full border border-green-200 bg-green-50 rounded-md p-2 pl-6 font-mono text-green-800 font-bold focus:ring-2 focus:ring-green-500 outline-none" placeholder="0" value={obj.financing || ''} onChange={(e) => handleObjChange(idx, 'financing', parseFloat(e.target.value))} />
                                     </div>
                                 </div>
                             </div>
-
                         </div>
                     </div>
                 ))}
+
+                {/* BOTÓN GRANDE AGREGAR NUEVO */}
+                <button 
+                    onClick={handleAdd}
+                    className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 font-bold hover:border-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2"
+                >
+                    <span className="text-2xl">+</span> Agregar Nuevo Objetivo Estratégico
+                </button>
             </div>
 
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-20">
@@ -171,9 +202,6 @@ const ObjectivesForm = ({ objectives, onUpdate, onBack, onSubmit, isLoading }: O
                     <button onClick={onBack} className="text-gray-500 font-bold hover:text-gray-900 px-6 py-2 transition-colors">
                         ← Volver a Contexto
                     </button>
-                    <div className="text-xs text-gray-400 hidden md:block">
-                        Asegúrate de que las unidades (%) coincidan con los valores ingresados.
-                    </div>
                     <button
                         onClick={onSubmit}
                         disabled={isLoading}
