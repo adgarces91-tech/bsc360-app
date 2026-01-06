@@ -34,61 +34,70 @@ def get_best_model(api_key):
         url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
         response = requests.get(url)
         candidates = [m["name"].replace("models/", "") for m in response.json().get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
-        # Preferimos Flash para velocidad y manejo de JSON
         for c in candidates: 
             if "flash" in c: return c
         return candidates[0] if candidates else "gemini-1.5-flash"
     except:
         return "gemini-1.5-flash"
 
-# --- FUNCIÓN DE CIRUGÍA JSON (NUEVO) ---
-# Esta función extrae el JSON válido aunque la IA escriba texto antes o después
+# --- 1. FUNCIÓN BLINDADA PARA NÚMEROS (NUEVO) ---
+# Convierte cualquier cosa (texto, null, vacío) en un número flotante seguro.
+def safe_float(value):
+    try:
+        if value is None or value == "":
+            return 0.0
+        # Convertimos a string, quitamos símbolos de moneda y comas
+        clean_val = str(value).replace("$", "").replace(",", "").strip()
+        return float(clean_val)
+    except:
+        return 0.0
+
+# --- 2. FUNCIÓN DE CIRUGÍA JSON ---
 def extract_json_safely(text):
     try:
-        # Intento 1: Limpieza básica
         clean = text.replace("```json", "").replace("```", "").strip()
         return json.loads(clean)
     except:
         try:
-            # Intento 2: Buscar la primera llave { y la última }
             start = text.find('{')
             end = text.rfind('}') + 1
             if start != -1 and end != 0:
-                json_str = text[start:end]
-                return json.loads(json_str)
+                return json.loads(text[start:end])
         except:
             return None
 
 @app.post("/analyze")
 async def analyze_data(request: AnalysisRequest):
-    # 1. PREPARACIÓN Y VALIDACIÓN DE DATOS
+    # PREPARACIÓN DE DATOS
     empresa = request.company_data.get('name', 'Empresa') if isinstance(request.company_data, dict) else "Empresa"
     
     # Manejo seguro de datos vacíos
     strategy = json.dumps(request.strategy_data or {}, ensure_ascii=False)
     market = json.dumps(request.market_data or {}, ensure_ascii=False)
     
-    inflation = request.market_data.get('inflation', 0) if isinstance(request.market_data, dict) else 0
-    interest = request.market_data.get('interest_rate', 0) if isinstance(request.market_data, dict) else 0
+    inflation = safe_float(request.market_data.get('inflation', 0)) if isinstance(request.market_data, dict) else 0
+    interest = safe_float(request.market_data.get('interest_rate', 0)) if isinstance(request.market_data, dict) else 0
 
-    # 2. MOTOR MATEMÁTICO (Python)
+    # MOTOR MATEMÁTICO (Ahora usa safe_float)
     processed_objectives = []
     total_progress = 0
     count = 0
 
     for obj in request.objectives:
         try:
-            current = float(obj.get('current_value', 0))
-            target = float(obj.get('target_value', 1))
-            progress = (current / target) * 100 if target != 0 else 0
+            # Usamos la función blindada para evitar errores de tipo
+            current = safe_float(obj.get('current_value', 0))
+            target = safe_float(obj.get('target_value', 1))
+            
+            # Cálculo de Avance (Evitamos división por cero)
+            if target == 0:
+                progress = 0.0
+            else:
+                progress = (current / target) * 100
             
             # Formateo de Presupuesto
-            budget_val = obj.get('financing', 0)
-            # Aseguramos que sea un número antes de formatear
-            if isinstance(budget_val, (int, float)) and budget_val > 0:
-                budget_str = f"${budget_val:,.0f} USD"
-            else:
-                budget_str = "No definido"
+            budget_val = safe_float(obj.get('financing', 0))
+            budget_str = f"${budget_val:,.0f} USD" if budget_val > 0 else "No definido"
 
             # Lógica de Semáforo
             if progress < 70:
@@ -101,7 +110,7 @@ async def analyze_data(request: AnalysisRequest):
                 emoji = "🟢"
                 status_txt = "ÓPTIMO (En Meta)"
 
-            # Inyectamos las variables pre-calculadas
+            # Inyectamos variables
             obj['calculated_progress'] = round(progress, 2)
             obj['budget_formatted'] = budget_str
             obj['status_emoji'] = emoji
@@ -110,8 +119,8 @@ async def analyze_data(request: AnalysisRequest):
             processed_objectives.append(obj)
             total_progress += progress
             count += 1
-        except Exception as e:
-            # Si falla un objetivo, no rompemos todo, solo lo marcamos
+        except Exception:
+            # Si algo falla aquí, recuperamos el objetivo con valores por defecto
             obj['calculated_progress'] = 0
             obj['status_emoji'] = "⚪"
             obj['status_text'] = "Error Datos"
@@ -122,7 +131,7 @@ async def analyze_data(request: AnalysisRequest):
 
     modelo_elegido = get_best_model(API_KEY)
 
-    # 3. PROMPT BLINDADO
+    # PROMPT
     prompt_text = f"""
     Actúa como Auditor Estratégico Senior (Big Four).
     Genera un INFORME FINAL BSC 360° en formato JSON estricto.
@@ -134,11 +143,10 @@ async def analyze_data(request: AnalysisRequest):
     INFLACIÓN: {inflation}%
     
     --- INSTRUCCIONES CRÍTICAS ---
-    1. Debes COPIAR EXACTAMENTE los valores 'status_emoji' y 'status_text' del JSON de objetivos. ¡No los omitas!
-    2. El campo 'budget_formatted' contiene el presupuesto en USD. Úsalo.
-    3. NO inventes cálculos matemáticos, usa 'calculated_progress'.
+    1. COPIA EXACTAMENTE los valores 'status_emoji', 'status_text', 'calculated_progress' y 'budget_formatted'.
+    2. NO inventes números. Usa los provistos.
 
-    --- PLANTILLA MARKDOWN PARA 'strategic_analysis' ---
+    --- PLANTILLA MARKDOWN ---
     
     # 📊 INFORME DE GESTIÓN - BSC 360°
     
@@ -199,7 +207,6 @@ async def analyze_data(request: AnalysisRequest):
     }}
     """
 
-    # 4. ENVÍO Y MANEJO DE ERRORES
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo_elegido}:generateContent?key={API_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = { "contents": [{"parts": [{"text": prompt_text}]}] }
@@ -208,24 +215,20 @@ async def analyze_data(request: AnalysisRequest):
         response = requests.post(url, headers=headers, json=payload)
         result_json = response.json()
         
-        if 'candidates' not in result_json:
-            raise ValueError(f"Google API Error: {result_json}")
+        if 'candidates' not in result_json: raise ValueError(f"Google API Error: {result_json}")
         
         texto_ia = result_json['candidates'][0]['content']['parts'][0]['text']
-        
-        # --- EXTRACCIÓN SEGURA ---
         final_data = extract_json_safely(texto_ia)
         
-        if not final_data:
-            raise ValueError("No se pudo encontrar JSON válido en la respuesta de la IA")
+        if not final_data: raise ValueError("JSON no encontrado")
             
         return final_data
 
     except Exception as e:
         print(f"❌ Error Técnico: {str(e)}")
-        # Respuesta de emergencia legible
+        # Mensaje amigable para el usuario en la presentación
         return {
-            "strategic_analysis": f"### ⚠️ Error Técnico Momentáneo\n\nLa IA no pudo estructurar la respuesta correctamente.\n\n**Causa:** {str(e)}\n\n**Solución:** Intenta reducir la cantidad de texto en 'Línea de Acción' o prueba nuevamente en 10 segundos.",
+            "strategic_analysis": f"### ⚠️ Aviso de Sistema\n\nNo pudimos procesar uno de los datos ingresados manualmente (posiblemente un texto en un campo numérico).\n\n**Sugerencia:** Revisa que los campos de 'Meta' y 'Valor Actual' sean números válidos e intenta nuevamente.",
             "radar_chart": [],
             "stats": {"total_objectives": 0, "avg_progress": 0, "near_target": 0}
         }
