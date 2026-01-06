@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect } from 'react';
 
-// DATOS REALES DE COPEC (Corregido: ROIC -> ROI)
+// DATOS REALES DE COPEC (Con Presupuestos en USD numéricos)
 const DEMO_FULL_COPEC = {
     company_data: {
         name: 'Empresas Copec S.A.',
@@ -32,20 +32,20 @@ const DEMO_FULL_COPEC = {
         competitors: 'Enex (Shell), Esmax (Petrobras), CMPC.',
         position: 'Líder de Mercado (Market Leader)'
     },
-    // OBJETIVOS: CAMBIO DE ROIC A ROI
+    // OBJETIVOS: Financiamiento ahora es numérico (USD)
     bsc_objectives: [
         { 
             perspective: "Financiera", 
-            objective: "Maximizar ROI en operaciones retail", // <--- CAMBIO AQUÍ
-            kpi: "ROI", // <--- CAMBIO AQUÍ
+            objective: "Maximizar ROI en operaciones retail", 
+            kpi: "ROI", 
             current_value: 14.5, target_value: 18.0, unit: "%",
             action_line: "Optimización de mix de productos y eficiencia operacional",
             data_source: "ERP SAP Consolidado Financiero",
-            formula: "(Beneficio Neto / Inversión) x 100", // <--- FÓRMULA AJUSTADA A ROI
+            formula: "(Beneficio Neto / Inversión) x 100",
             frequency: "Trimestral",
             baseline: 12.8,
             responsible: "Gerente General Retail",
-            financing: "Presupuesto CAPEX"
+            financing: 150000 // USD
         },
         { 
             perspective: "Clientes", 
@@ -58,7 +58,7 @@ const DEMO_FULL_COPEC = {
             frequency: "Mensual",
             baseline: 2.3,
             responsible: "Gerente Marketing Digital",
-            financing: "Presupuesto Digital"
+            financing: 80000 // USD
         },
         { 
             perspective: "Procesos", 
@@ -71,7 +71,7 @@ const DEMO_FULL_COPEC = {
             frequency: "Mensual",
             baseline: 7.2,
             responsible: "Gerente Supply Chain",
-            financing: "Inversión Tecnología"
+            financing: 120000 // USD
         },
         { 
             perspective: "Aprendizaje", 
@@ -84,7 +84,7 @@ const DEMO_FULL_COPEC = {
             frequency: "Trimestral",
             baseline: 28.0,
             responsible: "Gerente Desarrollo Org.",
-            financing: "Presupuesto Capacitación"
+            financing: 45000 // USD
         },
         { 
             perspective: "ESG/ODS", 
@@ -97,7 +97,7 @@ const DEMO_FULL_COPEC = {
             frequency: "Mensual",
             baseline: 8.0,
             responsible: "Gerente Sustentabilidad",
-            financing: "Inversión CAPEX Verde"
+            financing: 350000 // USD
         }
     ]
 };
@@ -136,10 +136,9 @@ const CompanyContextForm = ({ data, onUpdate, onNext }: CompanyContextFormProps)
             {/* HEADER */}
             <div className="flex justify-between items-center bg-indigo-50 p-4 rounded-xl border border-indigo-100">
                 <div>
-                    <h2 className="text-2xl font-black text-indigo-900">1. Contexto Empresarial (Full Data)</h2>
-                    <p className="text-sm text-indigo-600">Datos extraídos de Reportes Corporativos y de Mercado.</p>
+                    <h2 className="text-2xl font-black text-indigo-900">1. Contexto Empresarial</h2>
+                    <p className="text-sm text-indigo-600">Auditoría Estratégica con IA.</p>
                 </div>
-                {/* BOTÓN CON TEXTO CORREGIDO */}
                 <button onClick={handleAutoFill} className="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 transition shadow-lg flex items-center gap-2">
                     ⚡ Cargar Datos Copec
                 </button>
