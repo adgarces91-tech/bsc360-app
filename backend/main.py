@@ -40,19 +40,17 @@ def get_best_model(api_key):
     except:
         return "gemini-1.5-flash"
 
-# --- 1. FUNCIÓN BLINDADA PARA NÚMEROS (NUEVO) ---
-# Convierte cualquier cosa (texto, null, vacío) en un número flotante seguro.
-def safe_float(value):
+# --- FUNCIÓN DE LIMPIEZA EXTREMA ---
+def clean_number(value):
+    """Intenta convertir lo que sea en un número. Si falla, devuelve 0."""
     try:
-        if value is None or value == "":
-            return 0.0
-        # Convertimos a string, quitamos símbolos de moneda y comas
-        clean_val = str(value).replace("$", "").replace(",", "").strip()
-        return float(clean_val)
+        if not value: return 0.0
+        # Convertir a string, quitar $ y comas, dejar puntos si hay decimales
+        s = str(value).replace("$", "").replace(",", "")
+        return float(s)
     except:
         return 0.0
 
-# --- 2. FUNCIÓN DE CIRUGÍA JSON ---
 def extract_json_safely(text):
     try:
         clean = text.replace("```json", "").replace("```", "").strip()
@@ -68,167 +66,137 @@ def extract_json_safely(text):
 
 @app.post("/analyze")
 async def analyze_data(request: AnalysisRequest):
-    # PREPARACIÓN DE DATOS
-    empresa = request.company_data.get('name', 'Empresa') if isinstance(request.company_data, dict) else "Empresa"
-    
-    # Manejo seguro de datos vacíos
-    strategy = json.dumps(request.strategy_data or {}, ensure_ascii=False)
-    market = json.dumps(request.market_data or {}, ensure_ascii=False)
-    
-    inflation = safe_float(request.market_data.get('inflation', 0)) if isinstance(request.market_data, dict) else 0
-    interest = safe_float(request.market_data.get('interest_rate', 0)) if isinstance(request.market_data, dict) else 0
+    try: # TRY GIGANTE PARA ATRAPAR TODO
+        
+        # 1. DATOS BÁSICOS
+        empresa = "Empresa"
+        if isinstance(request.company_data, dict):
+            empresa = request.company_data.get('name', 'Empresa')
+        elif request.company_name:
+            empresa = request.company_name
 
-    # MOTOR MATEMÁTICO (Ahora usa safe_float)
-    processed_objectives = []
-    total_progress = 0
-    count = 0
+        # Manejo de diccionarios vacíos
+        market_data = request.market_data if isinstance(request.market_data, dict) else {}
+        
+        inflation = clean_number(market_data.get('inflation', 0))
+        interest = clean_number(market_data.get('interest_rate', 0))
 
-    for obj in request.objectives:
-        try:
-            # Usamos la función blindada para evitar errores de tipo
-            current = safe_float(obj.get('current_value', 0))
-            target = safe_float(obj.get('target_value', 1))
+        # 2. PROCESAMIENTO DE OBJETIVOS (Indestructible)
+        processed_objectives = []
+        total_progress = 0
+        count = 0
+
+        for obj in request.objectives:
+            # Valores por defecto seguros
+            kpi_name = obj.get('kpi', 'KPI')
             
-            # Cálculo de Avance (Evitamos división por cero)
-            if target == 0:
-                progress = 0.0
-            else:
+            # Limpieza numérica agresiva
+            current = clean_number(obj.get('current_value', 0))
+            target = clean_number(obj.get('target_value', 1))
+            budget_raw = clean_number(obj.get('financing', 0))
+
+            # Cálculo Seguro
+            progress = 0.0
+            if target != 0:
                 progress = (current / target) * 100
             
-            # Formateo de Presupuesto
-            budget_val = safe_float(obj.get('financing', 0))
-            budget_str = f"${budget_val:,.0f} USD" if budget_val > 0 else "No definido"
+            # Formateo
+            budget_str = f"${budget_raw:,.0f} USD" if budget_raw > 0 else "No definido"
 
-            # Lógica de Semáforo
+            # Semáforos
             if progress < 70:
-                emoji = "🔴"
-                status_txt = "CRÍTICO (Atención Inmediata)"
+                emoji, txt = "🔴", "CRÍTICO"
             elif progress < 90:
-                emoji = "🟡"
-                status_txt = "ALERTA (Desviación Moderada)"
+                emoji, txt = "🟡", "ALERTA"
             else:
-                emoji = "🟢"
-                status_txt = "ÓPTIMO (En Meta)"
+                emoji, txt = "🟢", "ÓPTIMO"
 
-            # Inyectamos variables
+            # Guardamos datos limpios
             obj['calculated_progress'] = round(progress, 2)
             obj['budget_formatted'] = budget_str
             obj['status_emoji'] = emoji
-            obj['status_text'] = status_txt
-
+            obj['status_text'] = txt
+            
             processed_objectives.append(obj)
             total_progress += progress
             count += 1
-        except Exception:
-            # Si algo falla aquí, recuperamos el objetivo con valores por defecto
-            obj['calculated_progress'] = 0
-            obj['status_emoji'] = "⚪"
-            obj['status_text'] = "Error Datos"
-            processed_objectives.append(obj)
 
-    global_avg = round(total_progress / count, 2) if count > 0 else 0
-    objectives_json = json.dumps(processed_objectives, ensure_ascii=False)
+        global_avg = round(total_progress / count, 2) if count > 0 else 0
+        
+        # Preparamos textos JSON
+        obj_json = json.dumps(processed_objectives, ensure_ascii=False)
+        strategy_json = json.dumps(request.strategy_data or {}, ensure_ascii=False)
+        market_json = json.dumps(market_data, ensure_ascii=False)
 
-    modelo_elegido = get_best_model(API_KEY)
+        modelo_elegido = get_best_model(API_KEY)
 
-    # PROMPT
-    prompt_text = f"""
-    Actúa como Auditor Estratégico Senior (Big Four).
-    Genera un INFORME FINAL BSC 360° en formato JSON estricto.
-
-    --- DATOS PRE-PROCESADOS ---
-    EMPRESA: {empresa}
-    SALUD GLOBAL: {global_avg}%
-    OBJETIVOS: {objectives_json}
-    INFLACIÓN: {inflation}%
-    
-    --- INSTRUCCIONES CRÍTICAS ---
-    1. COPIA EXACTAMENTE los valores 'status_emoji', 'status_text', 'calculated_progress' y 'budget_formatted'.
-    2. NO inventes números. Usa los provistos.
-
-    --- PLANTILLA MARKDOWN ---
-    
-    # 📊 INFORME DE GESTIÓN - BSC 360°
-    
-    ## 🏦 Resumen Ejecutivo
-    * **Empresa:** {empresa}
-    * **Entorno:** Inflación {inflation}% | Tasa {interest}%
-    * **Salud General:** {global_avg}% cumplimiento.
-    * **Diagnóstico:** (Resumen ejecutivo de 3 líneas).
-
-    ---
-    # 🎯 DETALLE DE DESEMPEÑO
-    (Iterar por cada objetivo):
-
-    ### 📌 [objective]
-    **KPI:** [kpi] | **Perspectiva:** [perspective]
-
-    > **ESTADO:** [status_emoji] [status_text]
-    > **CUMPLIMIENTO:** [calculated_progress]%
-
-    **📉 LAS CIFRAS:**
-    * **Meta:** [target_value] [unit]
-    * **Real:** [current_value] [unit]
-    * **Brecha:** (Diferencia simple)
-    * **Presupuesto:** [budget_formatted]
-
-    **🧠 ANÁLISIS & ESTRATEGIA:**
-    * **🔍 Causa Raíz:** (Análisis cruzado con mercado).
-    
-    **🛡️ PLAN DE CONTINGENCIA (3 Escenarios):**
-    1. **Conservador:** (Bajo costo).
-    2. **Moderado:** (Equilibrado).
-    3. **Agresivo:** (Alto impacto).
-
-    **⚠️ Riesgo:** [Consecuencia].
-
-    ---
-    # 🚀 PLAN DE IMPLEMENTACIÓN
-    * **Corto Plazo:** [Acciones]
-    * **Mediano Plazo:** [Acciones]
-
-    --- FIN PLANTILLA ---
-
-    RESPONDE SOLO CON ESTE JSON:
-    {{
-        "strategic_analysis": "Markdown string...",
-        "radar_chart": [
-            {{"subject": "Financiera", "A": [PROMEDIO_REAL], "fullMark": 100}},
-            {{"subject": "Clientes", "A": [PROMEDIO_REAL], "fullMark": 100}},
-            {{"subject": "Procesos", "A": [PROMEDIO_REAL], "fullMark": 100}},
-            {{"subject": "Aprendizaje", "A": [PROMEDIO_REAL], "fullMark": 100}},
-            {{"subject": "ESG/ODS", "A": [PROMEDIO_REAL], "fullMark": 100}}
-        ],
-        "stats": {{
-            "total_objectives": {count},
-            "avg_progress": {global_avg},
-            "near_target": [CALCULAR_VERDES]
+        # 3. PROMPT
+        prompt_text = f"""
+        Actúa como Auditor Estratégico Senior.
+        Genera un JSON con el análisis BSC.
+        
+        EMPRESA: {empresa}
+        SALUD: {global_avg}%
+        OBJETIVOS: {obj_json}
+        
+        INSTRUCCIONES:
+        1. Copia los valores 'calculated_progress', 'status_emoji', 'budget_formatted'.
+        2. Genera 'Plan de Contingencia' con 3 opciones.
+        
+        RESPONDE SOLO CON ESTE JSON:
+        {{
+            "strategic_analysis": "MARKDOWN DEL INFORME AQUÍ...",
+            "radar_chart": [
+                {{"subject": "Financiera", "A": {global_avg}, "fullMark": 100}},
+                {{"subject": "Clientes", "A": {global_avg}, "fullMark": 100}},
+                {{"subject": "Procesos", "A": {global_avg}, "fullMark": 100}},
+                {{"subject": "Aprendizaje", "A": {global_avg}, "fullMark": 100}},
+                {{"subject": "ESG/ODS", "A": {global_avg}, "fullMark": 100}}
+            ],
+            "stats": {{
+                "total_objectives": {count},
+                "avg_progress": {global_avg},
+                "near_target": 2
+            }}
         }}
-    }}
-    """
+        """
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo_elegido}:generateContent?key={API_KEY}"
-    headers = {"Content-Type": "application/json"}
-    payload = { "contents": [{"parts": [{"text": prompt_text}]}] }
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo_elegido}:generateContent?key={API_KEY}"
+        headers = {"Content-Type": "application/json"}
+        payload = { "contents": [{"parts": [{"text": prompt_text}]}] }
 
-    try:
+        print("📡 Enviando a Google...")
         response = requests.post(url, headers=headers, json=payload)
         result_json = response.json()
         
-        if 'candidates' not in result_json: raise ValueError(f"Google API Error: {result_json}")
-        
+        if 'candidates' not in result_json:
+            # ERROR DE GOOGLE DETECTADO
+            error_msg = result_json.get('error', {}).get('message', 'Error desconocido de Google')
+            raise ValueError(f"Google API Error: {error_msg}")
+
         texto_ia = result_json['candidates'][0]['content']['parts'][0]['text']
         final_data = extract_json_safely(texto_ia)
         
-        if not final_data: raise ValueError("JSON no encontrado")
-            
+        if not final_data:
+            raise ValueError("La IA no devolvió un JSON válido.")
+
         return final_data
 
     except Exception as e:
-        print(f"❌ Error Técnico: {str(e)}")
-        # Mensaje amigable para el usuario en la presentación
+        print(f"❌ ERROR CRÍTICO: {str(e)}")
+        # AQUÍ ESTÁ LA CLAVE: Devolvemos el error en el informe para leerlo
         return {
-            "strategic_analysis": f"### ⚠️ Aviso de Sistema\n\nNo pudimos procesar uno de los datos ingresados manualmente (posiblemente un texto en un campo numérico).\n\n**Sugerencia:** Revisa que los campos de 'Meta' y 'Valor Actual' sean números válidos e intenta nuevamente.",
+            "strategic_analysis": f"""
+# ⚠️ REPORTE DE DIAGNÓSTICO
+Ocurrió un error técnico. Muestra esto al desarrollador:
+
+**ERROR:** `{str(e)}`
+
+**SOLUCIÓN RÁPIDA:**
+1. Recarga la página (Ctrl + F5).
+2. Usa el botón 'Cargar Datos Copec'.
+3. No dejes campos vacíos.
+            """,
             "radar_chart": [],
             "stats": {"total_objectives": 0, "avg_progress": 0, "near_target": 0}
         }
