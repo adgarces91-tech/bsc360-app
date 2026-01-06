@@ -45,35 +45,27 @@ async def analyze_data(request: AnalysisRequest):
     empresa = request.company_data.get('name', 'Empresa') if isinstance(request.company_data, dict) else "Empresa"
     strategy = json.dumps(request.strategy_data, ensure_ascii=False)
     market = json.dumps(request.market_data, ensure_ascii=False)
-    
     inflation = request.market_data.get('inflation', 0) if isinstance(request.market_data, dict) else 0
     interest = request.market_data.get('interest_rate', 0) if isinstance(request.market_data, dict) else 0
 
-    # --- 2. MOTOR MATEMÁTICO (Python calcula, no la IA) ---
-    # Esto soluciona el error del "0%" en Clientes y ROI incorrectos
+    # 2. MOTOR MATEMÁTICO & PRE-PROCESAMIENTO
     processed_objectives = []
     total_progress = 0
     count = 0
 
     for obj in request.objectives:
         try:
-            # Forzamos conversión a números para evitar errores
             current = float(obj.get('current_value', 0))
-            target = float(obj.get('target_value', 1)) # Evitar división por cero
+            target = float(obj.get('target_value', 1))
+            progress = (current / target) * 100 if target != 0 else 0
             
-            # Cálculo de Avance
-            if target == 0: 
-                progress = 0
-            else:
-                progress = (current / target) * 100
-            
-            # Tope lógico (opcional, para que no de 500% si se pasa mucho)
-            # progress = min(progress, 150) 
+            # Formateo de Presupuesto (Si el usuario ingresó algo, lo usamos)
+            budget_user = obj.get('financing', 0)
+            budget_str = f"${budget_user:,.0f} USD" if budget_user else "No definido"
 
-            # Agregamos el cálculo al objeto que enviaremos a la IA
             obj['calculated_progress'] = round(progress, 2)
-            
-            # Determinamos el semáforo nosotros mismos para asegurar precisión
+            obj['budget_formatted'] = budget_str # Le pasamos esto a la IA
+
             if progress < 70:
                 obj['status_emoji'] = "🔴 CRÍTICO"
                 obj['status_text'] = "Requiere Atención Inmediata"
@@ -87,46 +79,40 @@ async def analyze_data(request: AnalysisRequest):
             processed_objectives.append(obj)
             total_progress += progress
             count += 1
-        except Exception as e:
+        except Exception:
             obj['calculated_progress'] = 0
-            obj['status_emoji'] = "⚪ ERROR DATOS"
+            obj['status_emoji'] = "⚪ ERROR"
             processed_objectives.append(obj)
 
-    # Calculamos el promedio global real
     global_avg = round(total_progress / count, 2) if count > 0 else 0
     objectives_json = json.dumps(processed_objectives, ensure_ascii=False)
 
     modelo_elegido = get_best_model(API_KEY)
 
-    # 3. PROMPT MAESTRO (Ahora recibe los cálculos listos)
+    # 3. PROMPT MAESTRO ACTUALIZADO (Con Plan de Contingencia y Opciones)
     prompt_text = f"""
     Actúa como Auditor Estratégico Senior (Big Four).
-    Genera un INFORME FINAL BSC 360° utilizando los CÁLCULOS MATEMÁTICOS YA REALIZADOS.
+    Genera un INFORME FINAL BSC 360° utilizando los datos provistos.
 
-    --- DATOS PRE-CALCULADOS (USAR ESTOS VALORES, NO RE-CALCULAR) ---
+    --- DATOS CLAVE ---
     PROMEDIO GLOBAL: {global_avg}%
-    OBJETIVOS DETALLADOS: {objectives_json}
+    OBJETIVOS: {objectives_json}
+    CONTEXTO: {empresa} | Inflación {inflation}%
     
-    CONTEXTO EXTRA:
-    EMPRESA: {empresa}
-    ESTRATEGIA: {strategy}
-    MERCADO: {market}
-
     --- INSTRUCCIONES DE FORMATO ---
-    1. Usa los valores 'calculated_progress' y 'status_emoji' que vienen en el JSON. ¡No inventes números!
-    2. Estructura visual: Usa bloques de cita (>) para destacar el estado.
-    3. Separa objetivos con línea horizontal (---).
+    1. Usa los valores 'calculated_progress', 'status_emoji' y 'budget_formatted' del JSON.
+    2. En "Plan de Contingencia", genera 3 opciones estratégicas claras.
+    3. Estructura visual limpia con líneas divisorias.
 
     --- PLANTILLA DE CONTENIDO (Markdown) ---
-    Genera el campo 'strategic_analysis' así:
-
+    
     # 📊 INFORME DE GESTIÓN - BSC 360°
     
     ## 🏦 Resumen Ejecutivo
     * **Empresa:** {empresa}
     * **Entorno:** Inflación {inflation}% | Tasa {interest}%
     * **Salud General:** {global_avg}% de cumplimiento global.
-    * **Diagnóstico:** (Escribe un breve párrafo de 3 líneas resumiendo la situación).
+    * **Diagnóstico:** (Breve resumen de 3 líneas).
 
     ---
     # 🎯 DETALLE DE DESEMPEÑO
@@ -141,18 +127,23 @@ async def analyze_data(request: AnalysisRequest):
     **📉 LAS CIFRAS:**
     * **Meta:** [target_value] [unit]
     * **Real:** [current_value] [unit]
-    * **Brecha:** (Calcula la diferencia simple)
+    * **Brecha:** (Calcula diferencia)
+    * **Presupuesto Asignado:** [budget_formatted] (Dato del usuario)
 
-    **🧠 ANÁLISIS & ACCIÓN:**
-    * **🔍 Causa Raíz:** (Explica por qué, cruzando con datos de mercado/estrategia).
-    * **⚡ Plan de Choque:** [Línea de Acción mejorada].
-    * **💰 Inversión Requerida:** $[Estimación USD] (Sé específico).
-    * **⚠️ Riesgo:** [Consecuencia de no actuar].
+    **🧠 ANÁLISIS & ESTRATEGIA:**
+    * **🔍 Causa Raíz:** (Explica por qué).
+    
+    **🛡️ PLAN DE CONTINGENCIA (Opciones):**
+    * **Opción A (Conservadora):** [Acción de bajo costo/riesgo].
+    * **Opción B (Moderada):** [Acción equilibrada].
+    * **Opción C (Agresiva):** [Acción de alto impacto/inversión].
+
+    **⚠️ Riesgo:** [Consecuencia de no actuar].
 
     ---
-    # 🚀 PLAN DE IMPLEMENTACIÓN PRIORIZADO
-    * **Corto Plazo (Semana 1-4):** [Lista acciones urgentes de objetivos rojos]
-    * **Mediano Plazo (Mes 2-3):** [Lista acciones de objetivos amarillos]
+    # 🚀 PLAN DE IMPLEMENTACIÓN
+    * **Corto Plazo:** [Acciones Urgentes]
+    * **Mediano Plazo:** [Acciones Estructurales]
 
     --- FIN PLANTILLA ---
 
@@ -160,16 +151,16 @@ async def analyze_data(request: AnalysisRequest):
     {{
         "strategic_analysis": "El markdown generado...",
         "radar_chart": [
-            {{"subject": "Financiera", "A": [PROMEDIO_REAL_DE_ESTA_PERSPECTIVA], "fullMark": 100}},
-            {{"subject": "Clientes", "A": [PROMEDIO_REAL_DE_ESTA_PERSPECTIVA], "fullMark": 100}},
-            {{"subject": "Procesos", "A": [PROMEDIO_REAL_DE_ESTA_PERSPECTIVA], "fullMark": 100}},
-            {{"subject": "Aprendizaje", "A": [PROMEDIO_REAL_DE_ESTA_PERSPECTIVA], "fullMark": 100}},
-            {{"subject": "ESG/ODS", "A": [PROMEDIO_REAL_DE_ESTA_PERSPECTIVA], "fullMark": 100}}
+            {{"subject": "Financiera", "A": [PROMEDIO_REAL], "fullMark": 100}},
+            {{"subject": "Clientes", "A": [PROMEDIO_REAL], "fullMark": 100}},
+            {{"subject": "Procesos", "A": [PROMEDIO_REAL], "fullMark": 100}},
+            {{"subject": "Aprendizaje", "A": [PROMEDIO_REAL], "fullMark": 100}},
+            {{"subject": "ESG/ODS", "A": [PROMEDIO_REAL], "fullMark": 100}}
         ],
         "stats": {{
             "total_objectives": {count},
             "avg_progress": {global_avg},
-            "near_target": [CALCULAR_OBJETIVOS_VERDES]
+            "near_target": [CONTEO_VERDES]
         }}
     }}
     """
@@ -182,13 +173,10 @@ async def analyze_data(request: AnalysisRequest):
     try:
         response = requests.post(url, headers=headers, json=payload)
         result_json = response.json()
-        
         if 'candidates' not in result_json: raise ValueError("Error API Google")
-        
         texto_ia = result_json['candidates'][0]['content']['parts'][0]['text']
         clean_text = texto_ia.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_text)
-
     except Exception as e:
         print(f"❌ Error: {e}")
         return {
