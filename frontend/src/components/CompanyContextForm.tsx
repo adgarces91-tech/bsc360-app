@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect } from 'react';
 
-// DATOS REALES DE COPEC (AUDITORÍA COMPLETA PDFS 02.x y 03)
+// DATOS REALES DE COPEC (Corregido: ROIC -> ROI)
 const DEMO_FULL_COPEC = {
     company_data: {
         name: 'Empresas Copec S.A.',
@@ -14,7 +14,6 @@ const DEMO_FULL_COPEC = {
         vision: 'Ser líderes en la transición energética y movilidad del futuro.',
         values: 'Sostenibilidad, Innovación, Excelencia, Compromiso.',
         priorities: 'Descarbonización, Digitalización de clientes, Eficiencia Operacional.',
-        // NUEVOS CAMPOS DETECTADOS EN PDF
         markets: 'Chile (70%), Colombia (10%), Perú (20%)',
         products: 'Combustibles, Tiendas de Conveniencia, Lubricantes, Energía Renovable',
         advantage: 'Red de distribución nacional y marca líder',
@@ -26,25 +25,23 @@ const DEMO_FULL_COPEC = {
         sector_growth: 4.2,
         confidence_index: 68,
         trends: 'Electromovilidad, Hidrógeno Verde, Automatización logística.',
-        // NUEVOS CAMPOS DEL PDF 03
-        energy_price: 5.5, // USD/kWh
-        labor_cost: 5.2    // kUSD/año
+        energy_price: 5.5,
+        labor_cost: 5.2
     },
     competition_data: {
         competitors: 'Enex (Shell), Esmax (Petrobras), CMPC.',
         position: 'Líder de Mercado (Market Leader)'
     },
-    // OBJETIVOS CON DETALLE TÉCNICO COMPLETO (PDFs 02.1 - 02.5)
+    // OBJETIVOS: CAMBIO DE ROIC A ROI
     bsc_objectives: [
         { 
             perspective: "Financiera", 
-            objective: "Maximizar ROIC en operaciones retail", 
-            kpi: "ROIC", 
+            objective: "Maximizar ROI en operaciones retail", // <--- CAMBIO AQUÍ
+            kpi: "ROI", // <--- CAMBIO AQUÍ
             current_value: 14.5, target_value: 18.0, unit: "%",
-            // DETALLES EXTRAÍDOS DE PDF 02.1
             action_line: "Optimización de mix de productos y eficiencia operacional",
             data_source: "ERP SAP Consolidado Financiero",
-            formula: "(NOPAT / Capital Invertido) x 100",
+            formula: "(Beneficio Neto / Inversión) x 100", // <--- FÓRMULA AJUSTADA A ROI
             frequency: "Trimestral",
             baseline: 12.8,
             responsible: "Gerente General Retail",
@@ -55,7 +52,6 @@ const DEMO_FULL_COPEC = {
             objective: "Aumentar frecuencia de visita", 
             kpi: "Frecuencia Visita", 
             current_value: 2.3, target_value: 2.8, unit: "visitas/mes",
-            // DETALLES EXTRAÍDOS DE PDF 02.2
             action_line: "App móvil con beneficios y gamificación",
             data_source: "App Copec Puntos + Analytics",
             formula: "Total visitas / Clientes únicos",
@@ -69,7 +65,6 @@ const DEMO_FULL_COPEC = {
             objective: "Optimizar gestión de inventario", 
             kpi: "Inventory Turnover", 
             current_value: 8.5, target_value: 12.0, unit: "veces/año",
-            // DETALLES EXTRAÍDOS DE PDF 02.3
             action_line: "Sistema predictivo de demanda con IA",
             data_source: "WMS + Sistema Inventarios",
             formula: "Costo Ventas / Inventario Promedio",
@@ -83,7 +78,6 @@ const DEMO_FULL_COPEC = {
             objective: "Desarrollar liderazgo de tienda", 
             kpi: "% Gerentes Certificados", 
             current_value: 35.0, target_value: 85.0, unit: "%",
-            // DETALLES EXTRAÍDOS DE PDF 02.4
             action_line: "Academia de gerentes y mentoring",
             data_source: "LMS Sistema Capacitación",
             formula: "(Certificados / Total) x 100",
@@ -97,7 +91,6 @@ const DEMO_FULL_COPEC = {
             objective: "Transición a energías renovables", 
             kpi: "% Energía Renovable", 
             current_value: 12.0, target_value: 45.0, unit: "%",
-            // DETALLES EXTRAÍDOS DE PDF 02.5
             action_line: "Paneles solares en estaciones",
             data_source: "Sistema Monitoreo Energético",
             formula: "(kWh renovable / Total) x 100",
@@ -116,7 +109,6 @@ interface CompanyContextFormProps {
 }
 
 const CompanyContextForm = ({ data, onUpdate, onNext }: CompanyContextFormProps) => {
-    // Inicialización robusta
     const [localData, setLocalData] = useState({
         company_data: data.company_data || {},
         strategy_data: data.strategy_data || {},
@@ -141,15 +133,15 @@ const CompanyContextForm = ({ data, onUpdate, onNext }: CompanyContextFormProps)
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700 pb-10">
-            
             {/* HEADER */}
             <div className="flex justify-between items-center bg-indigo-50 p-4 rounded-xl border border-indigo-100">
                 <div>
                     <h2 className="text-2xl font-black text-indigo-900">1. Contexto Empresarial (Full Data)</h2>
                     <p className="text-sm text-indigo-600">Datos extraídos de Reportes Corporativos y de Mercado.</p>
                 </div>
+                {/* BOTÓN CON TEXTO CORREGIDO */}
                 <button onClick={handleAutoFill} className="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700 transition shadow-lg flex items-center gap-2">
-                    ⚡ Cargar Datos PDF Copec
+                    ⚡ Cargar Datos Copec
                 </button>
             </div>
 
@@ -172,7 +164,7 @@ const CompanyContextForm = ({ data, onUpdate, onNext }: CompanyContextFormProps)
                 </div>
             </section>
 
-            {/* SECCIÓN 2: ESTRATEGIA (AMPLIADO SEGÚN PDF) */}
+            {/* SECCIÓN 2: ESTRATEGIA */}
             <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-blue-500">
                 <h3 className="text-sm font-bold text-blue-500 uppercase tracking-wider mb-4 border-b pb-2">02. Estrategia & Posicionamiento</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -184,10 +176,9 @@ const CompanyContextForm = ({ data, onUpdate, onNext }: CompanyContextFormProps)
                         <label className="label">Visión</label>
                         <textarea className="input-area" rows={2} value={localData.strategy_data.vision} onChange={e => handleChange('strategy_data', 'vision', e.target.value)} />
                     </div>
-                    {/* CAMPOS NUEVOS DETECTADOS EN PDF */}
                     <div>
                         <label className="label">Mercados Principales</label>
-                        <input className="input-field" placeholder="Ej: Chile (70%)..." value={localData.strategy_data.markets} onChange={e => handleChange('strategy_data', 'markets', e.target.value)} />
+                        <input className="input-field" value={localData.strategy_data.markets} onChange={e => handleChange('strategy_data', 'markets', e.target.value)} />
                     </div>
                     <div>
                         <label className="label">Ventaja Competitiva</label>
@@ -200,7 +191,7 @@ const CompanyContextForm = ({ data, onUpdate, onNext }: CompanyContextFormProps)
                 </div>
             </section>
 
-            {/* SECCIÓN 3: MERCADO (AMPLIADO SEGÚN PDF 03) */}
+            {/* SECCIÓN 3: MERCADO */}
             <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-green-500">
                 <h3 className="text-sm font-bold text-green-600 uppercase tracking-wider mb-4 border-b pb-2">03. Entorno de Mercado (Inputs Financieros)</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -216,8 +207,6 @@ const CompanyContextForm = ({ data, onUpdate, onNext }: CompanyContextFormProps)
                         <label className="label">Crecimiento Sector (%)</label>
                         <input type="number" className="input-field" value={localData.market_data.sector_growth} onChange={e => handleChange('market_data', 'sector_growth', parseFloat(e.target.value))} />
                     </div>
-                    
-                    {/* CAMPOS FALTANTES AGREGADOS */}
                     <div className="bg-green-50 p-2 rounded border border-green-100">
                         <label className="label text-green-800">Precio Energía (USD/kWh)</label>
                         <input type="number" className="input-field bg-white" value={localData.market_data.energy_price} onChange={e => handleChange('market_data', 'energy_price', parseFloat(e.target.value))} />
